@@ -1,0 +1,120 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "David Loris"
+date: "December 26, 2015"
+output: html_document
+---
+
+##Introduction
+
+Human Activity Recognition focuses mainly on the identification of human activities, such as running, climbing, sleeping etc. The data provided for the practical machine learning course project instead focuses on identifying whether or not a weight lifting activity is performed correctly.  More information on HAR and the study data can be found at <http://groupware.les.inf.puc-rio.br/har>.
+
+Our objective is to develop a ML Algorithm which accurarately predicts, based on the covariates provided,  whether the activity has been performed correctly or not.
+
+
+##Data Import / setup
+having saved the csv files we set the working director and import train and test using read.csv package. Also we load other useful packages
+
+```{r}
+setwd("~/Documents/machine learning project")
+library(caret)
+library(randomForest)
+train <- read.csv("pml-training.csv")
+test <- read.csv("pml-testing.csv")
+```
+
+#data cleaning / preparation
+
+In order to use the data in a ML alg we must first clean it. Firstly we remove columns with missing data.
+
+```{r, echo=FALSE}
+
+
+train <- train[,complete.cases(t(train))] 
+test <- test[,complete.cases(t(test))] 
+
+
+```
+
+Then we remove timestamp and other columns which do not seem relavent to prediction
+```{r, echo=FALSE}
+
+train <- train[, !grepl("^X|window|timestamp", names(train))]
+test <- test[, !grepl("^X|window|timestamp", names(test))]
+
+```
+
+Now we verufy they have the same columns and delete any different columns
+
+```{r, echo=FALSE}
+setdiff(names(test),names(train))
+test$problem_id <- NULL
+
+```
+
+Now set everything to numeric except classe
+```{r, echo=FALSE}
+classe <- train$classe
+train <- train[, sapply(train, is.numeric)]
+train$classe <- classe
+classe <- test$classe
+test <- test[, sapply(test, is.numeric)]
+test$classe <- classe
+```
+
+Data cleaning is complete. We have:
+- a training set with 19622 rows and 52 columns
+- a test set with 20 rows and 52 columns
+
+We now split the training data in order to create a train / validation set seperate to the test set.
+
+
+```{r, echo=FALSE}
+set.seed(1000) 
+
+inTrain <- createDataPartition(train$classe, p=0.7, list=F)
+train1 <- train[inTrain, ]
+test1 <- train[-inTrain, ]
+
+```
+
+
+## Model
+
+For the model we use a Random Forest algorithm. We use 4 fold cross validation. Thus we specify in the train control function this requirement, then run the model
+
+```{r, echo=TRUE}
+control <- trainControl(method="cv", 4)
+model <- train(classe ~ ., data=train1, method="rf", trControl=control, na.action=na.omit,ntree=250)
+model
+```
+
+Now we run the model on the validation set to exaine confusion matrix
+```{r, echo=TRUE}
+predict1 <- predict(model,test1)
+confusionMatrix(test1$classe, predict1)
+```
+
+And calculte accuracy and out of sample error
+```{r, echo=TRUE}
+accuracy <- postResample(predict1, test1$classe)
+accuracy
+error <- 1 - accuracy
+error
+```
+Our accuracy is 99.22% wile our out of sample error rate is 0.78%
+
+
+## Predictions for Test set
+
+Let us predict values for classe using the model we trained above.
+```{r, echo=TRUE}
+output <- predict(model, test)
+output
+```
+
+
+
+
+
+
